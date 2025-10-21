@@ -1,60 +1,124 @@
-const path = require('path');
-const express = require('express');
-const session = require('express-session');
-const bodyParser = require('body-parser');
-const http = require('http');
-const { Server } = require('socket.io');
-const cookieParser = require('cookie-parser');
-
+// server.js
+const express = require("express");
+const path = require("path");
+const http = require("http");
+const socketIo = require("socket.io");
+const session = require("express-session");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server);
 
-
+// ✅ Use environment PORT for Vercel or fallback to 3000
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 
+// ✅ Serve static files from /public
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(cookieParser());
-app.use(session({
-secret: 'chaoticvibe-secret',
-resave: false,
-saveUninitialized: true,
-}));
+// ✅ Session setup
+app.use(
+  session({
+    secret: "chaoticvibe_secret_key",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
+// ✅ Simple user data store
+const USERS_FILE = path.join(__dirname, "users.json");
+if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "{}");
 
-// in-memory stores (for demo)
-const registeredUsers = []; // { username, password (plain for demo), lastSeen }
-const onlineBySocket = new Map(); // socketId -> username
+// ✅ Helper functions
+function getUsers() {
+  return JSON.parse(fs.readFileSync(USERS_FILE));
+}
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
 
+// ✅ Login route
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).send("Missing credentials");
 
-// Serve static public folder
-app.use(express.static(path.join(__dirname, 'public')));
+  const users = getUsers();
 
+  // Auto-register new users
+  if (!users[username]) {
+    users[username] = { username, password, online: false };
+    saveUsers(users);
+  }
 
-// Serve admin.html only for logged-in admin
-app.get('/admin.html', (req, res, next) => {
-if (req.session && req.session.isAdmin) return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-return res.redirect('/admin-login.html');
+  // Verify password
+  if (users[username].password !== password)
+    return res.status(401).send("Wrong password");
+
+  req.session.username = username;
+  res.redirect("/chat.html");
 });
 
+// ✅ Admin login route
+app.post("/admin-login", (req, res) => {
+  const { password } = req.body;
+  const adminPass = process.env.ADMIN_PASS || "admin123";
 
-// GET current session info (used by front-end)
-app.get('/session', (req, res) => {
-res.json({ username: req.session.username || null, isAdmin: !!req.session.isAdmin });
+  if (password === adminPass) {
+    req.session.admin = true;
+    res.redirect("/admin.html");
+  } else {
+    res.status(401).send("Invalid admin password");
+  }
 });
 
+// ✅ Chat route protection
+app.get("/chat", (req, res) => {
+  if (!req.session.username) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public/chat.html"));
+});
 
-// Login for users
-app.post('/login', (req, res) => {
-const { username, password } = req.body;
-if (!username || !password) return res.status(400).json({ ok: false, message: 'Missing fields' });
+// ✅ Admin panel protection
+app.get("/admin", (req, res) => {
+  if (!req.session.admin) return res.redirect("/admin-login.html");
+  res.sendFile(path.join(__dirname, "public/admin.html"));
+});
 
+// ✅ Socket.io for live chat
+io.on("connection", (socket) => {
+  socket.on("join", (username) => {
+    socket.username = username;
+    const users = getUsers();
+    if (users[username]) users[username].online = true;
+    saveUsers(users);
+    io.emit("userList", users);
+  });
 
-// find or create user (very simple for demo)
-let user = registeredUsers.find(u => u.username === username);
-if (!user) {
-server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+  socket.on("message", (msg) => {
+    io.emit("message", { user: socket.username, text: msg });
+  });
+
+  socket.on("disconnect", () => {
+    if (socket.username) {
+      const users = getUsers();
+      if (users[socket.username]) users[socket.username].online = false;
+      saveUsers(users);
+      io.emit("userList", users);
+    }
+  });
+});
+
+// ✅ Default route for Vercel (serves index.html)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+// ✅ Start the server
+server.listen(PORT, () => {
+  console.log(`🚀 ChaoticVibe running on port ${PORT}`);
+});
+
+// ✅ Export for Vercel compatibility
+module.exports = app;
