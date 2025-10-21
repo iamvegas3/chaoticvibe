@@ -1,21 +1,26 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>ChaoticVibe — Login</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChaoticVibe | Login</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body class="dark">
-<div class="center-card">
-<img src="/EWbndKy4Tlesld1s5HLj9w.webp" alt="ChaoticVibe" class="logo">
-<form id="loginForm" class="form">
-<input name="username" placeholder="Username" required>
-<input name="password" type="password" placeholder="Password" required>
-<button type="submit" class="neon">Login</button>
-</form>
-<p class="muted">No sign-up needed — first login creates account.</p>
-</div>
-<script src="/client.js"></script>
+<body>
+  <div class="login-container">
+    <h1>ChaoticVibe 🔮</h1>
+    <form id="loginForm" method="POST" action="/login">
+      <input type="text" name="username" placeholder="Username" required />
+      <input type="password" name="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <script>
+    // Optional: For debugging
+    document.getElementById("loginForm").addEventListener("submit", () => {
+      console.log("Submitting login form...");
+    });
+  </script>
 </body>
 </html>
