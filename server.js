@@ -1,22 +1,16 @@
-// server.js - Fully Vercel Ready 💯
+// server.js — CommonJS version for Vercel ✅
 
-import express from "express";
-import session from "express-session";
-import path from "path";
-import { fileURLToPath } from "url";
+const express = require("express");
+const session = require("express-session");
+const path = require("path");
 
 const app = express();
 
-// Vercel Paths Fix
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Middlewares
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ⚠️ Replace MemoryStore for production (Redis/CloudStore)
-// MemoryStore is okay for testing but gives warnings on Vercel.
+// ⚠️ Session setup
 app.use(
   session({
     secret: "chaoticvibe_secret_key",
@@ -25,7 +19,7 @@ app.use(
   })
 );
 
-// ✅ In-memory user data (instead of file)
+// ✅ In-memory users (no filesystem writes)
 let users = [
   {
     username: "admin",
@@ -33,13 +27,12 @@ let users = [
   },
 ];
 
-// ✅ Serve static frontend (if any)
+// ✅ Serve static files (optional: if you have a public/ folder)
 app.use(express.static(path.join(__dirname, "public")));
 
 // ✅ Routes
-
 app.get("/", (req, res) => {
-  res.send("🔥 ChaoticVibe Server Running on Vercel — All Good!");
+  res.send("🔥 ChaoticVibe Server Running on Vercel — CommonJS OK!");
 });
 
 app.post("/register", (req, res) => {
@@ -73,5 +66,5 @@ app.listen(port, () => {
   console.log(`✅ Server running on port ${port}`);
 });
 
-// ✅ Export handler for Vercel
-export default app;
+// ✅ Export for Vercel
+module.exports = app;
